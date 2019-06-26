@@ -52,14 +52,15 @@ void RunAction::CreateHistogram()
 {
   G4AnalysisManager* analysisManager = G4AnalysisManager::Instance();
   analysisManager->SetVerboseLevel(1);
-  G4String filename = "Test";
+  G4String filename = "muon";
   analysisManager->OpenFile(filename);
-  analysisManager->CreateNtuple("Test", "physics");
+  analysisManager->CreateNtuple("muonData", "physics");
 
   analysisManager->CreateNtupleIColumn("eventID");
   analysisManager->CreateNtupleIColumn("trackID");
   analysisManager->CreateNtupleIColumn("parentID");
-  analysisManager->CreateNtupleIColumn("particle");
+  analysisManager->CreateNtupleSColumn("particle");
+  analysisManager->CreateNtupleSColumn("process");
   analysisManager->CreateNtupleDColumn("kenergy");
   analysisManager->CreateNtupleDColumn("xMomentum");
   analysisManager->CreateNtupleDColumn("yMomentum");

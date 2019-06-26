@@ -16,7 +16,7 @@
 
 #define plotmode 1
 
-#define part 11
+#define part "neutron"
 #define valname "initialZ"
 #define title "Initial Z of Neutrons in m"
 #define bins 20
@@ -30,6 +30,7 @@ using namespace std;
 void plotBoth(TTree* tmm, TTree* tmp);
 void plotNumNeutronsFromCapture(TTree* tmm);
 void plotBothInitials(TTree* tmm, TTree* tmp);
+void printInfo(TTree* tmm, TTree* tmp);
 
 int main(int argc,char** argv) 
 {
@@ -57,6 +58,8 @@ int main(int argc,char** argv)
     break;
   case 2: plotBothInitials(tmm, tmp);
     break;
+  case 3: printInfo(tmm, tmp);
+    break;
   default:;
   }
 
@@ -67,7 +70,7 @@ int main(int argc,char** argv)
 
 void plotBoth(TTree* tmm, TTree* tmp)
 {
-  static Int_t particlemm, particlemp;
+  static string particlemm, particlemp;
   static Double_t valmm, valmp;
 
   tmm->SetBranchAddress("particle", &particlemm);
@@ -118,7 +121,8 @@ void plotBoth(TTree* tmm, TTree* tmp)
 
 void plotNumNeutronsFromCapture(TTree* tmm)
 {
-  static Int_t event, id, parent, particle;
+  static Int_t event, id, parent;
+  static string particle;
   static Double_t xi, yi, zi, xf, yf, zf;
   tmm->SetBranchAddress("eventID",  &event);
   tmm->SetBranchAddress("trackID",  &id);
@@ -154,12 +158,12 @@ void plotNumNeutronsFromCapture(TTree* tmm)
   {
      tmm->GetEntry(i);
 
-     if(particle == 7 && parent == 1)
+     if(particle == "anti_nu_e" && parent == 1)
      {
        haddecay[event] = true;
      }
 
-     if(particle == 4 && id == 1)
+     if(particle == "mu-" && id == 1)
      {
        mux[event] = xf;
        muy[event] = yf;
@@ -171,7 +175,7 @@ void plotNumNeutronsFromCapture(TTree* tmm)
   {
     tmm->GetEntry(i);
 
-    if(particle == 11 && parent == 1)
+    if(particle == "neutron" && parent == 1)
     {
       Double_t dx = xi - mux[event];
       Double_t dy = yi - muy[event];
@@ -202,7 +206,8 @@ void plotNumNeutronsFromCapture(TTree* tmm)
 
 void plotBothInitials(TTree* tmm, TTree* tmp)
 {
-  static Int_t particlemm, particlemp, idmm, idmp;
+  static Int_t idmm, idmp;
+  static string particlemm, particlemp;
   static Double_t valmm, valmp;
 
   tmm->SetBranchAddress("particle", &particlemm);
@@ -224,7 +229,7 @@ void plotBothInitials(TTree* tmm, TTree* tmp)
   {
      tmm->GetEntry(i);
 
-     if(particlemm == 4 && idmm == 1)
+     if(particlemm == "mu-" && idmm == 1)
      {
        histmm->Fill(valmm);
      }
@@ -234,7 +239,7 @@ void plotBothInitials(TTree* tmm, TTree* tmp)
   {
      tmp->GetEntry(i);
 
-     if(particlemp == 3 && idmp == 1)
+     if(particlemp == "mu+" && idmp == 1)
      {
        histmp->Fill(valmp);
      }
@@ -252,4 +257,53 @@ void plotBothInitials(TTree* tmm, TTree* tmp)
   hs->SetMinimum(ymin);
   hs->SetMaximum(ymax);
   hs->Draw("nostack");
+}
+
+void printInfo(TTree* tmm, TTree* tmp)
+{
+    static string particlemm, particlemp, processmm, processmp;
+
+    tmm->SetBranchAddress("particle", &particlemm);
+    tmp->SetBranchAddress("particle", &particlemp);
+    tmm->SetBranchAddress("process", &processmm);
+    tmp->SetBranchAddress("process", &processmp);
+
+    Int_t nentriesmm = (Int_t)tmm->GetEntries();
+    Int_t nentriesmp = (Int_t)tmp->GetEntries();
+
+    cout << "###particlemm" << endl;
+
+    for (Int_t i=0; i < nentriesmm; i++)
+    {
+       tmm->GetEntry(i);
+
+       cout << particlemm << endl;
+    }
+
+    cout << "###processmm" << endl;
+
+    for (Int_t i=0; i < nentriesmm; i++)
+    {
+       tmm->GetEntry(i);
+
+       cout << processmm << endl;
+    }
+
+    cout << "###particlemp" << endl;
+
+    for (Int_t i=0; i < nentriesmp; i++)
+    {
+       tmp->GetEntry(i);
+
+       cout << particlemp << endl;
+    }
+
+    cout << "###processmp" << endl;
+
+    for (Int_t i=0; i < nentriesmp; i++)
+    {
+       tmp->GetEntry(i);
+
+       cout << processmp << endl;
+    }
 }
