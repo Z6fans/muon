@@ -1,0 +1,11 @@
+/control/verbose 0
+/run/verbose 0
+/event/verbose 0
+/tracking/verbose 0
+/tracking/storeTrajectory 1
+/process/verbose 0
+/cuts/verbose 0
+/run/initialize
+/gun/particle mu+
+/gun/energy 10 GeV
+/run/beamOn 10000
