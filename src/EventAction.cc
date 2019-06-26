@@ -51,14 +51,14 @@ void EventAction::EndOfEventAction(const G4Event* anEvent)
     analysisManager->FillNtupleSColumn(4,  processName);
     analysisManager->FillNtupleDColumn(5,  kenergy);
     analysisManager->FillNtupleDColumn(6,  xMomentum);
-    analysisManager->FillNtupleDColumn(8,  yMomentum);
-    analysisManager->FillNtupleDColumn(9,  zMomentum);
-    analysisManager->FillNtupleDColumn(10, initialX);
-    analysisManager->FillNtupleDColumn(11, initialY);
-    analysisManager->FillNtupleDColumn(12, initialZ);
-    analysisManager->FillNtupleDColumn(13, finalX);
-    analysisManager->FillNtupleDColumn(14, finalY);
-    analysisManager->FillNtupleDColumn(15, finalZ);
+    analysisManager->FillNtupleDColumn(7,  yMomentum);
+    analysisManager->FillNtupleDColumn(8,  zMomentum);
+    analysisManager->FillNtupleDColumn(9, initialX);
+    analysisManager->FillNtupleDColumn(10, initialY);
+    analysisManager->FillNtupleDColumn(11, initialZ);
+    analysisManager->FillNtupleDColumn(12, finalX);
+    analysisManager->FillNtupleDColumn(13, finalY);
+    analysisManager->FillNtupleDColumn(14, finalZ);
 
     analysisManager->AddNtupleRow();
   });

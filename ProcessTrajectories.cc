@@ -11,10 +11,10 @@
 
 #define filemm "results/waterTube/10000_1GeV/muminus.root"
 #define filemp "results/waterTube/10000_1GeV/muplus.root"
-#define treename "cylinderTest;1"
+#define treename "muonData;1"
 #define numevents 10000
 
-#define plotmode 1
+#define plotmode 3
 
 #define part "neutron"
 #define valname "initialZ"
