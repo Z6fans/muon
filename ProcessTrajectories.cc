@@ -14,9 +14,9 @@
 #define treename "muonData;1"
 #define numevents 10000
 
-#define plotmode 3
+#define plotmode 1
 
-#define part "neutron"
+#define part "anti_nu_e"
 #define valname "initialZ"
 #define title "Initial Z of Neutrons in m"
 #define bins 20
@@ -30,7 +30,8 @@ using namespace std;
 void plotBoth(TTree* tmm, TTree* tmp);
 void plotNumNeutronsFromCapture(TTree* tmm);
 void plotBothInitials(TTree* tmm, TTree* tmp);
-void printInfo(TTree* tmm, TTree* tmp);
+void printProcess(TTree* tmm, TTree* tmp);
+bool streq(const Char_t* s1, const Char_t* s2);
 
 int main(int argc,char** argv) 
 {
@@ -47,8 +48,8 @@ int main(int argc,char** argv)
   TFile fmm(filemm);
   TFile fmp(filemp);
 
-  TTree* tmm = (TTree*)fmm.Get(treename);
-  TTree* tmp = (TTree*)fmp.Get(treename);
+  TTree* tmm = static_cast<TTree*>(fmm.Get(treename));
+  TTree* tmp = static_cast<TTree*>(fmp.Get(treename));
 
   switch(plotmode)
   {
@@ -58,19 +59,20 @@ int main(int argc,char** argv)
     break;
   case 2: plotBothInitials(tmm, tmp);
     break;
-  case 3: printInfo(tmm, tmp);
+  case 3: printProcess(tmm, tmp);
     break;
   default:;
   }
 
   c1->Update();
   theApp.Run();
+
   return 0;
 }
 
 void plotBoth(TTree* tmm, TTree* tmp)
 {
-  static string particlemm, particlemp;
+  static Char_t particlemm[50], particlemp[50];
   static Double_t valmm, valmp;
 
   tmm->SetBranchAddress("particle", &particlemm);
@@ -82,27 +84,27 @@ void plotBoth(TTree* tmm, TTree* tmp)
   TH1I *histmm = new TH1I("mu-", title, bins, xmin, xmax);
   TH1I *histmp = new TH1I("mu+", title, bins, xmin, xmax);
 
-  Int_t nentriesmm = (Int_t)tmm->GetEntries();
-  Int_t nentriesmp = (Int_t)tmp->GetEntries();
+  Long64_t nentriesmm = tmm->GetEntries();
+  Long64_t nentriesmp = tmp->GetEntries();
 
-  for (Int_t i=0; i < nentriesmm; i++)
+  for (Long64_t i=0; i < nentriesmm; i++)
   {
-     tmm->GetEntry(i);
+    tmm->GetEntry(i);
 
-     if(particlemm == part)
-     {
-       histmm->Fill(valmm);
-     }
+    if(streq(particlemm, part))
+    {
+      histmm->Fill(valmm);
+    }
   }
 
-  for (Int_t i=0; i < nentriesmp; i++)
+  for (Long64_t i=0; i < nentriesmp; i++)
   {
-     tmp->GetEntry(i);
+    tmp->GetEntry(i);
 
-     if(particlemp == part)
-     {
-       histmp->Fill(valmp);
-     }
+    if(streq(particlemp, part))
+    {
+      histmp->Fill(valmp);
+    }
   }
 
   THStack *hs = new THStack("hs", title);
@@ -122,70 +124,37 @@ void plotBoth(TTree* tmm, TTree* tmp)
 void plotNumNeutronsFromCapture(TTree* tmm)
 {
   static Int_t event, id, parent;
-  static string particle;
-  static Double_t xi, yi, zi, xf, yf, zf;
+  static Char_t particle[50], process[50];
   tmm->SetBranchAddress("eventID",  &event);
   tmm->SetBranchAddress("trackID",  &id);
   tmm->SetBranchAddress("parentID", &parent);
   tmm->SetBranchAddress("particle", &particle);
-  tmm->SetBranchAddress("initialX",  &xi);
-  tmm->SetBranchAddress("initialY",  &yi);
-  tmm->SetBranchAddress("initialZ",  &zi);
-  tmm->SetBranchAddress("finalX",   &xf);
-  tmm->SetBranchAddress("finalY",   &yf);
-  tmm->SetBranchAddress("finalZ",   &zf);
 
   TH1F *hist = new TH1F("Neutrons", "Number of Neutrons per Capture", bins, xmin, xmax);
 
   Int_t nneutrons[numevents];
   Bool_t haddecay[numevents];
-  Double_t mux[numevents];
-  Double_t muy[numevents];
-  Double_t muz[numevents];
 
   for(Int_t i = 0; i < numevents; i++)
   {
     nneutrons[i] = 0;
     haddecay[i] = false;
-    mux[i] = 0;
-    muy[i] = 0;
-    muz[i] = 0;
   }
 
-  Int_t nentries = (Int_t)tmm->GetEntries();
+  Long64_t nentries = tmm->GetEntries();
 
-  for (Int_t i = 0; i < nentries; i++)
-  {
-     tmm->GetEntry(i);
-
-     if(particle == "anti_nu_e" && parent == 1)
-     {
-       haddecay[event] = true;
-     }
-
-     if(particle == "mu-" && id == 1)
-     {
-       mux[event] = xf;
-       muy[event] = yf;
-       muz[event] = zf;
-     }
-  }
-
-  for(Int_t i = 0; i < nentries; i++)
+  for (Long64_t i = 0; i < nentries; i++)
   {
     tmm->GetEntry(i);
 
-    if(particle == "neutron" && parent == 1)
+    if(streq("anti_nu_e", particle) && parent == 1)
     {
-      Double_t dx = xi - mux[event];
-      Double_t dy = yi - muy[event];
-      Double_t dz = zi - muz[event];
-      Double_t dd = dx*dx + dy*dy + dz*dz;
+      haddecay[event] = true;
+    }
 
-      if(dd <= 0.001)
-      {
-        nneutrons[event] ++;
-      }
+    if(streq("neutron", particle) && streq("muMinusCaptureAtRest", process) && parent == 1)
+    {
+      nneutrons[event] ++;
     }
   }
 
@@ -207,7 +176,7 @@ void plotNumNeutronsFromCapture(TTree* tmm)
 void plotBothInitials(TTree* tmm, TTree* tmp)
 {
   static Int_t idmm, idmp;
-  static string particlemm, particlemp;
+  static Char_t particlemm[50], particlemp[50];
   static Double_t valmm, valmp;
 
   tmm->SetBranchAddress("particle", &particlemm);
@@ -222,27 +191,27 @@ void plotBothInitials(TTree* tmm, TTree* tmp)
   TH1I *histmm = new TH1I("mu-", title, bins, xmin, xmax);
   TH1I *histmp = new TH1I("mu+", title, bins, xmin, xmax);
 
-  Int_t nentriesmm = (Int_t)tmm->GetEntries();
-  Int_t nentriesmp = (Int_t)tmp->GetEntries();
+  Long64_t nentriesmm = tmm->GetEntries();
+  Long64_t nentriesmp = tmp->GetEntries();
 
-  for (Int_t i=0; i < nentriesmm; i++)
+  for (Long64_t i=0; i < nentriesmm; i++)
   {
-     tmm->GetEntry(i);
+    tmm->GetEntry(i);
 
-     if(particlemm == "mu-" && idmm == 1)
-     {
-       histmm->Fill(valmm);
-     }
+    if(streq("mu-", particlemm) && idmm == 1)
+    {
+      histmm->Fill(valmm);
+    }
   }
 
-  for (Int_t i=0; i < nentriesmp; i++)
+  for (Long64_t i=0; i < nentriesmp; i++)
   {
-     tmp->GetEntry(i);
+    tmp->GetEntry(i);
 
-     if(particlemp == "mu+" && idmp == 1)
-     {
-       histmp->Fill(valmp);
-     }
+    if(streq("mu+", particlemp) && idmp == 1)
+    {
+      histmp->Fill(valmp);
+    }
   }
 
   THStack *hs = new THStack("hs", title);
@@ -259,51 +228,44 @@ void plotBothInitials(TTree* tmm, TTree* tmp)
   hs->Draw("nostack");
 }
 
-void printInfo(TTree* tmm, TTree* tmp)
+void printProcess(TTree* tmm, TTree* tmp)
 {
-    static string particlemm, particlemp, processmm, processmp;
+  static Char_t particlemm[50], particlemp[50], processmm[50], processmp[50];
 
-    tmm->SetBranchAddress("particle", &particlemm);
-    tmp->SetBranchAddress("particle", &particlemp);
-    tmm->SetBranchAddress("process", &processmm);
-    tmp->SetBranchAddress("process", &processmp);
+  tmm->SetBranchAddress("particle", &particlemm);
+  tmp->SetBranchAddress("particle", &particlemp);
+  tmm->SetBranchAddress("process", &processmm);
+  tmp->SetBranchAddress("process", &processmp);
 
-    Int_t nentriesmm = (Int_t)tmm->GetEntries();
-    Int_t nentriesmp = (Int_t)tmp->GetEntries();
+  Long64_t nentriesmm = tmm->GetEntries();
+  Long64_t nentriesmp = tmp->GetEntries();
 
-    cout << "###particlemm" << endl;
+  cout << "###mm" << endl;
 
-    for (Int_t i=0; i < nentriesmm; i++)
+  for (Long64_t i=0; i < nentriesmm; i++)
+  {
+    tmm->GetEntry(i);
+
+    if(streq(part, particlemm))
     {
-       tmm->GetEntry(i);
-
-       cout << particlemm << endl;
+      cout << processmm << endl;
     }
+  }
 
-    cout << "###processmm" << endl;
+  cout << "###processmp" << endl;
 
-    for (Int_t i=0; i < nentriesmm; i++)
+  for (Long64_t i=0; i < nentriesmp; i++)
+  {
+    tmp->GetEntry(i);
+
+    if(streq(part, particlemp))
     {
-       tmm->GetEntry(i);
-
-       cout << processmm << endl;
+      cout << processmp << endl;
     }
+  }
+}
 
-    cout << "###particlemp" << endl;
-
-    for (Int_t i=0; i < nentriesmp; i++)
-    {
-       tmp->GetEntry(i);
-
-       cout << particlemp << endl;
-    }
-
-    cout << "###processmp" << endl;
-
-    for (Int_t i=0; i < nentriesmp; i++)
-    {
-       tmp->GetEntry(i);
-
-       cout << processmp << endl;
-    }
+bool streq(const Char_t* s1, const Char_t* s2)
+{
+  return !strncmp(s1, s2, min(strlen(s1), strlen(s2)));
 }

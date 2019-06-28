@@ -13,7 +13,7 @@ int main(int argc,char** argv)
   G4RunManager* runManager = new G4RunManager;
 
   runManager->SetUserInitialization(new DetectorConstruction);
-  runManager->SetUserInitialization(new QBBC);
+  runManager->SetUserInitialization(new QBBC(0));
   runManager->SetUserInitialization(new ActionInitialization);
 
   G4UImanager* UImanager = G4UImanager::GetUIpointer();
