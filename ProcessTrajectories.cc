@@ -9,21 +9,22 @@
 #include "TApplication.h"
 #include "THStack.h"
 
-#define filemm "results/waterTube/10000_1GeV/muminus.root"
-#define filemp "results/waterTube/10000_1GeV/muplus.root"
+#define filemm "results/waterTube/10000_10GeV/muminus.root"
+#define filemp "results/waterTube/10000_10GeV/muplus.root"
 #define treename "muonData;1"
 #define numevents 10000
 
-#define plotmode 1
+#define plotmode 2
 
-#define part "anti_nu_e"
-#define valname "initialZ"
-#define title "Initial Z of Neutrons in m"
-#define bins 20
-#define xmin 0
-#define xmax 5
+#define part "neutron"
+#define valname "finalZ"
+#define title "Final Z of Initial Muons in m"
+#define bins 100
+#define xmin 30
+#define xmax 80
 #define ymin 0.5
 #define ymax 1e3
+#define ignoreParent true
 
 using namespace std;
 
@@ -31,6 +32,7 @@ void plotBoth(TTree* tmm, TTree* tmp);
 void plotNumNeutronsFromCapture(TTree* tmm);
 void plotBothInitials(TTree* tmm, TTree* tmp);
 void printProcess(TTree* tmm, TTree* tmp);
+void printPhotonuclearProducts(TTree* tmm, TTree* tmp);
 bool streq(const Char_t* s1, const Char_t* s2);
 
 int main(int argc,char** argv) 
@@ -61,6 +63,8 @@ int main(int argc,char** argv)
     break;
   case 3: printProcess(tmm, tmp);
     break;
+  case 4: printPhotonuclearProducts(tmm, tmp);
+    break;
   default:;
   }
 
@@ -74,12 +78,16 @@ void plotBoth(TTree* tmm, TTree* tmp)
 {
   static Char_t particlemm[50], particlemp[50];
   static Double_t valmm, valmp;
+  static Int_t parentmm, parentmp;
 
   tmm->SetBranchAddress("particle", &particlemm);
   tmp->SetBranchAddress("particle", &particlemp);
 
   tmm->SetBranchAddress(valname, &valmm);
   tmp->SetBranchAddress(valname, &valmp);
+
+  tmm->SetBranchAddress("parentID", &parentmm);
+  tmp->SetBranchAddress("parentID", &parentmp);
 
   TH1I *histmm = new TH1I("mu-", title, bins, xmin, xmax);
   TH1I *histmp = new TH1I("mu+", title, bins, xmin, xmax);
@@ -91,7 +99,7 @@ void plotBoth(TTree* tmm, TTree* tmp)
   {
     tmm->GetEntry(i);
 
-    if(streq(particlemm, part))
+    if(streq(particlemm, part) && (parentmm == 1 || ignoreParent))
     {
       histmm->Fill(valmm);
     }
@@ -101,7 +109,7 @@ void plotBoth(TTree* tmm, TTree* tmp)
   {
     tmp->GetEntry(i);
 
-    if(streq(particlemp, part))
+    if(streq(particlemp, part) && (parentmp == 1 || ignoreParent))
     {
       histmp->Fill(valmp);
     }
@@ -129,6 +137,7 @@ void plotNumNeutronsFromCapture(TTree* tmm)
   tmm->SetBranchAddress("trackID",  &id);
   tmm->SetBranchAddress("parentID", &parent);
   tmm->SetBranchAddress("particle", &particle);
+  tmm->SetBranchAddress("process", &process);
 
   TH1F *hist = new TH1F("Neutrons", "Number of Neutrons per Capture", bins, xmin, xmax);
 
@@ -147,7 +156,7 @@ void plotNumNeutronsFromCapture(TTree* tmm)
   {
     tmm->GetEntry(i);
 
-    if(streq("anti_nu_e", particle) && parent == 1)
+    if(streq("anti_nu_e", particle) && streq("muMinusCaptureAtRest", process) && parent == 1)
     {
       haddecay[event] = true;
     }
@@ -252,7 +261,7 @@ void printProcess(TTree* tmm, TTree* tmp)
     }
   }
 
-  cout << "###processmp" << endl;
+  cout << "###mp" << endl;
 
   for (Long64_t i=0; i < nentriesmp; i++)
   {
@@ -265,7 +274,49 @@ void printProcess(TTree* tmm, TTree* tmp)
   }
 }
 
+void printPhotonuclearProducts(TTree* tmm, TTree* tmp)
+{
+  static Char_t particlemm[50], particlemp[50], processmm[50], processmp[50];
+  static Int_t eventmm, eventmp, parentmm, parentmp;
+
+  tmm->SetBranchAddress("particle", &particlemm);
+  tmp->SetBranchAddress("particle", &particlemp);
+  tmm->SetBranchAddress("process", &processmm);
+  tmp->SetBranchAddress("process", &processmp);
+  tmm->SetBranchAddress("eventID", &eventmm);
+  tmp->SetBranchAddress("eventID", &eventmp);
+  tmm->SetBranchAddress("parentID", &parentmm);
+  tmp->SetBranchAddress("parentID", &parentmp);
+
+  Long64_t nentriesmm = tmm->GetEntries();
+  Long64_t nentriesmp = tmp->GetEntries();
+
+  cout << "###mm" << endl;
+
+  for (Long64_t i=0; i < nentriesmm; i++)
+  {
+    tmm->GetEntry(i);
+
+    if(streq("photonNuclear", processmm))
+    {
+      cout << eventmm << ": " << particlemm << "<" << parentmm << endl;
+    }
+  }
+
+  cout << "###mp" << endl;
+
+  for (Long64_t i=0; i < nentriesmp; i++)
+  {
+    tmp->GetEntry(i);
+
+    if(streq("photonNuclear", processmp))
+    {
+      cout << eventmp << ": " << particlemp << "<" << parentmp << endl;
+    }
+  }
+}
+
 bool streq(const Char_t* s1, const Char_t* s2)
 {
-  return !strncmp(s1, s2, min(strlen(s1), strlen(s2)));
+  return !strncmp(s1, s2, max(strlen(s1), strlen(s2)));
 }

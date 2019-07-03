@@ -7,5 +7,5 @@
 /cuts/verbose 0
 /run/initialize
 /gun/particle mu+
-/gun/energy 1 GeV
+/gun/energy 10 GeV
 /run/beamOn 10000
