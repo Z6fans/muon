@@ -25,6 +25,8 @@ add_executable(ProcessTrajectories ProcessTrajectories.cc)
 target_link_libraries(ProcessTrajectories ${ROOT_LIBRARIES})
 add_executable(MuonTests MuonTests.cc)
 target_link_libraries(MuonTests ${Geant4_LIBRARIES})
+add_executable(PreprocessTrajectories PreprocessTrajectories.cc)
+target_link_libraries(PreprocessTrajectories ${ROOT_LIBRARIES})
 
 set(MUON_SCRIPTS
   init_vis.mac
@@ -41,10 +43,11 @@ foreach(_script ${MUON_SCRIPTS})
     )
 endforeach()
 
-add_custom_target(Muon DEPENDS MuonMain ProcessTrajectories MuonTests)
+add_custom_target(Muon DEPENDS MuonMain ProcessTrajectories MuonTests PreprocessTrajectories)
 
 install(TARGETS MuonMain DESTINATION bin)
 install(TARGETS ProcessTrajectories DESTINATION bin)
 install(TARGETS MuonTests DESTINATION bin)
+install(TARGETS PreprocessTrajectories DESTINATION bin)
 
 

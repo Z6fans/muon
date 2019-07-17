@@ -9,34 +9,48 @@
 #include "TApplication.h"
 #include "THStack.h"
 
-#define filemm "results/waterTube/10000_10GeV/muminus.root"
-#define filemp "results/waterTube/10000_10GeV/muplus.root"
-#define treename "muonData;1"
-#define numevents 10000
-
-#define plotmode 2
-
-#define part "neutron"
-#define valname "finalZ"
-#define title "Final Z of Initial Muons in m"
-#define bins 100
-#define xmin 30
-#define xmax 80
-#define ymin 0.5
-#define ymax 1e3
-#define ignoreParent true
-
 using namespace std;
 
-void plotBoth(TTree* tmm, TTree* tmp);
-void plotNumNeutronsFromCapture(TTree* tmm);
-void plotBothInitials(TTree* tmm, TTree* tmp);
-void printProcess(TTree* tmm, TTree* tmp);
-void printPhotonuclearProducts(TTree* tmm, TTree* tmp);
-bool streq(const Char_t* s1, const Char_t* s2);
+typedef vector<Int_t>    ivec;
+typedef vector<string>   svec;
+typedef vector<Double_t> dvec;
 
-int main(int argc,char** argv) 
+typedef struct
 {
+  enum{STRING, DOUBLE, NONE} tag;
+  string s;
+  Double_t n;
+}
+result;
+
+typedef function<void (result)> yielder;
+typedef function<void (TTree*, yielder)> treeprocess;
+typedef function<void (ivec*, svec*, svec*, dvec*,
+                       dvec*, dvec*, dvec*,
+                       dvec*, dvec*, dvec*,
+                       dvec*, dvec*, dvec*, yielder)> eventprocess;
+typedef function<result (Int_t, string, string, Double_t,
+                         Double_t, Double_t, Double_t,
+                         Double_t, Double_t, Double_t,
+                         Double_t, Double_t, Double_t)> trajprocess;
+
+eventprocess iterTrajectories(trajprocess computeresult);
+treeprocess iterEvents(eventprocess fill);
+void twoHist(TTree* tmm, TTree* tmp, treeprocess fill,
+             string title, Int_t bins,
+             Double_t xmin, Double_t xmax,
+             Double_t ymax, Double_t ymin = 0.5);
+void oneHist(TTree* t, treeprocess fill,
+             string title, string shorttitle, Int_t bins,
+             Double_t xmin, Double_t xmax,
+             Double_t ymax, Double_t ymin = 0.5);
+void printYielder(result r);
+void printBoth(TTree* tmm, TTree* tmp, treeprocess fill);
+
+int main(int argc,char** argv)
+{
+  string datadir = argv[1];
+
   TApplication theApp("App", &argc, argv);
 
   TCanvas *c1 = new TCanvas("c1", "c1", 1600, 800);
@@ -47,26 +61,31 @@ int main(int argc,char** argv)
 
   c1->SetLogy();
 
-  TFile fmm(filemm);
-  TFile fmp(filemp);
+  TFile fmm((datadir + "muminus.root").data());
+  TFile fmp((datadir + "muplus.root").data());
 
-  TTree* tmm = static_cast<TTree*>(fmm.Get(treename));
-  TTree* tmp = static_cast<TTree*>(fmp.Get(treename));
+  TTree* tmm = static_cast<TTree*>(fmm.Get("muonData"));
+  TTree* tmp = static_cast<TTree*>(fmp.Get("muonData"));
 
-  switch(plotmode)
+  auto compres = [](Int_t, string particle, string process, Double_t,
+      Double_t, Double_t, Double_t,
+      Double_t, Double_t, Double_t,
+      Double_t, Double_t, Double_t)
   {
-  case 0: plotBoth(tmm, tmp);
-    break;
-  case 1: plotNumNeutronsFromCapture(tmm);
-    break;
-  case 2: plotBothInitials(tmm, tmp);
-    break;
-  case 3: printProcess(tmm, tmp);
-    break;
-  case 4: printPhotonuclearProducts(tmm, tmp);
-    break;
-  default:;
-  }
+    if(!particle.compare("neutron"))
+    {
+      return result {result::STRING, process, 0};
+    }
+    else
+    {
+      return result {result::NONE, "", 0};
+    }
+  };
+
+  /*twoHist(tmm, tmp, iterEvents(iterTrajectories(compres)),
+          "Final Z of Initial Muons in m", 240, 74, 80, 1e6);*/
+
+  printBoth(tmm, tmp, iterEvents(iterTrajectories(compres)));
 
   c1->Update();
   theApp.Run();
@@ -74,62 +93,7 @@ int main(int argc,char** argv)
   return 0;
 }
 
-void plotBoth(TTree* tmm, TTree* tmp)
-{
-  static Char_t particlemm[50], particlemp[50];
-  static Double_t valmm, valmp;
-  static Int_t parentmm, parentmp;
-
-  tmm->SetBranchAddress("particle", &particlemm);
-  tmp->SetBranchAddress("particle", &particlemp);
-
-  tmm->SetBranchAddress(valname, &valmm);
-  tmp->SetBranchAddress(valname, &valmp);
-
-  tmm->SetBranchAddress("parentID", &parentmm);
-  tmp->SetBranchAddress("parentID", &parentmp);
-
-  TH1I *histmm = new TH1I("mu-", title, bins, xmin, xmax);
-  TH1I *histmp = new TH1I("mu+", title, bins, xmin, xmax);
-
-  Long64_t nentriesmm = tmm->GetEntries();
-  Long64_t nentriesmp = tmp->GetEntries();
-
-  for (Long64_t i=0; i < nentriesmm; i++)
-  {
-    tmm->GetEntry(i);
-
-    if(streq(particlemm, part) && (parentmm == 1 || ignoreParent))
-    {
-      histmm->Fill(valmm);
-    }
-  }
-
-  for (Long64_t i=0; i < nentriesmp; i++)
-  {
-    tmp->GetEntry(i);
-
-    if(streq(particlemp, part) && (parentmp == 1 || ignoreParent))
-    {
-      histmp->Fill(valmp);
-    }
-  }
-
-  THStack *hs = new THStack("hs", title);
-
-  histmm->SetLineColor(2);
-  histmp->SetLineColor(1);
-
-  hs->Add(histmm);
-  hs->Add(histmp);
-
-  hs->Draw("nostack");
-  hs->SetMinimum(ymin);
-  hs->SetMaximum(ymax);
-  hs->Draw("nostack");
-}
-
-void plotNumNeutronsFromCapture(TTree* tmm)
+/*void plotNumNeutronsFromCapture(TTree* tmm)
 {
   static Int_t event, id, parent;
   static Char_t particle[50], process[50];
@@ -182,48 +146,123 @@ void plotNumNeutronsFromCapture(TTree* tmm)
   hist->Draw();
 }
 
-void plotBothInitials(TTree* tmm, TTree* tmp)
+void printCaptureProducts(TTree* tmm)
 {
-  static Int_t idmm, idmp;
-  static Char_t particlemm[50], particlemp[50];
-  static Double_t valmm, valmp;
+  static Char_t particle[50], process[50];
+  static Int_t event, parent;
 
-  tmm->SetBranchAddress("particle", &particlemm);
-  tmp->SetBranchAddress("particle", &particlemp);
+  tmm->SetBranchAddress("particle", &particle);
+  tmm->SetBranchAddress("process", &process);
+  tmm->SetBranchAddress("eventID", &event);
+  tmm->SetBranchAddress("parentID", &parent);
 
-  tmm->SetBranchAddress("trackID", &idmm);
-  tmp->SetBranchAddress("trackID", &idmp);
+  Bool_t haddecay[numevents];
 
-  tmm->SetBranchAddress(valname, &valmm);
-  tmp->SetBranchAddress(valname, &valmp);
+  for(Int_t i = 0; i < numevents; i++)
+  {
+    haddecay[i] = false;
+  }
 
-  TH1I *histmm = new TH1I("mu-", title, bins, xmin, xmax);
-  TH1I *histmp = new TH1I("mu+", title, bins, xmin, xmax);
+  Long64_t nentries = tmm->GetEntries();
 
-  Long64_t nentriesmm = tmm->GetEntries();
-  Long64_t nentriesmp = tmp->GetEntries();
-
-  for (Long64_t i=0; i < nentriesmm; i++)
+  for (Long64_t i = 0; i < nentries; i++)
   {
     tmm->GetEntry(i);
 
-    if(streq("mu-", particlemm) && idmm == 1)
+    if(streq("anti_nu_e", particle) && streq("muMinusCaptureAtRest", process) && parent == 1)
     {
-      histmm->Fill(valmm);
+      haddecay[event] = true;
     }
   }
 
-  for (Long64_t i=0; i < nentriesmp; i++)
+  for (Long64_t i=0; i < nentries; i++)
   {
-    tmp->GetEntry(i);
+    tmm->GetEntry(i);
 
-    if(streq("mu+", particlemp) && idmp == 1)
+    if(streq("muMinusCaptureAtRest", process) && parent == 1 && !haddecay[event])
     {
-      histmp->Fill(valmp);
+      cout << event << ": " << particle << endl;
     }
   }
+}*/
 
-  THStack *hs = new THStack("hs", title);
+eventprocess iterTrajectories(trajprocess computeresult)
+{
+  return [=](ivec* parents, svec* particles, svec* processes, dvec* energies,
+      dvec* xmomenta,  dvec* ymomenta,  dvec* zmomenta,
+      dvec* initialxs, dvec* initialys, dvec* initialzs,
+      dvec* finalxs,   dvec* finalys,   dvec* finalzs, yielder yield)
+  {
+    unsigned long ntracks = particles->size();
+
+    for(unsigned long i = 0; i < ntracks; i++)
+    {
+      yield(computeresult(parents  ->at(i), particles->at(i), processes->at(i), energies->at(i),
+                          xmomenta ->at(i), ymomenta ->at(i), zmomenta ->at(i),
+                          initialxs->at(i), initialys->at(i), initialzs->at(i),
+                          finalxs  ->at(i), finalys  ->at(i), finalzs  ->at(i)));
+    }
+  };
+}
+
+treeprocess iterEvents(eventprocess fill)
+{
+  return [=](TTree* t, yielder yield)
+  {
+    ivec* parents   = nullptr;
+    svec* particles = nullptr;
+    svec* processes = nullptr;
+    dvec* energies  = nullptr;
+    dvec* xmomenta  = nullptr;
+    dvec* ymomenta  = nullptr;
+    dvec* zmomenta  = nullptr;
+    dvec* initialxs = nullptr;
+    dvec* initialys = nullptr;
+    dvec* initialzs = nullptr;
+    dvec* finalxs   = nullptr;
+    dvec* finalys   = nullptr;
+    dvec* finalzs   = nullptr;
+
+    t->SetBranchAddress("parentID",  &parents);
+    t->SetBranchAddress("particle",  &particles);
+    t->SetBranchAddress("process",   &processes);
+    t->SetBranchAddress("kenergy",   &energies);
+    t->SetBranchAddress("xMomentum", &xmomenta);
+    t->SetBranchAddress("yMomentum", &ymomenta);
+    t->SetBranchAddress("zMomentum", &zmomenta);
+    t->SetBranchAddress("initialX",  &initialxs);
+    t->SetBranchAddress("initialY",  &initialys);
+    t->SetBranchAddress("initialZ",  &initialzs);
+    t->SetBranchAddress("finalX",    &finalxs);
+    t->SetBranchAddress("finalY",    &finalys);
+    t->SetBranchAddress("finalZ",    &finalzs);
+
+    Long64_t nevents = t->GetEntries();
+
+    for (Long64_t i = 0; i < nevents; i++)
+    {
+      t->GetEntry(i);
+
+      fill(parents, particles, processes, energies,
+           xmomenta, ymomenta, zmomenta,
+           initialxs, initialys, initialzs,
+           finalxs, finalys, finalzs, yield);
+    }
+  };
+}
+
+void twoHist(TTree* tmm, TTree* tmp, treeprocess fill,
+             string title, Int_t bins,
+             Double_t xmin, Double_t xmax,
+             Double_t ymax, Double_t ymin)
+{
+  TH1F *histmm = new TH1F("mu-", title.data(), bins, xmin, xmax);
+  TH1F *histmp = new TH1F("mu+", title.data(), bins, xmin, xmax);
+
+  fill(tmm, [=](result r){if(r.tag == result::DOUBLE) histmm->Fill(r.n);});
+  fill(tmp, [=](result r){if(r.tag == result::DOUBLE) histmp->Fill(r.n);});
+
+  THStack *hs = new THStack("hs", title.data());
 
   histmm->SetLineColor(2);
   histmp->SetLineColor(1);
@@ -237,86 +276,39 @@ void plotBothInitials(TTree* tmm, TTree* tmp)
   hs->Draw("nostack");
 }
 
-void printProcess(TTree* tmm, TTree* tmp)
+void oneHist(TTree* t, treeprocess fill,
+             string title, string shorttitle, Int_t bins,
+             Double_t xmin, Double_t xmax,
+             Double_t ymax, Double_t ymin)
 {
-  static Char_t particlemm[50], particlemp[50], processmm[50], processmp[50];
+  TH1F *hist = new TH1F(shorttitle.data(), title.data(), bins, xmin, xmax);
 
-  tmm->SetBranchAddress("particle", &particlemm);
-  tmp->SetBranchAddress("particle", &particlemp);
-  tmm->SetBranchAddress("process", &processmm);
-  tmp->SetBranchAddress("process", &processmp);
+  fill(t, [=](result r){if(r.tag == result::DOUBLE) hist->Fill(r.n);});
 
-  Long64_t nentriesmm = tmm->GetEntries();
-  Long64_t nentriesmp = tmp->GetEntries();
+  hist->SetLineColor(2);
+  hist->Draw();
+  hist->SetMinimum(ymin);
+  hist->SetMaximum(ymax);
+  hist->Draw();
+}
 
-  cout << "###mm" << endl;
-
-  for (Long64_t i=0; i < nentriesmm; i++)
+void printYielder(result r)
+{
+  if(r.tag == result::STRING)
   {
-    tmm->GetEntry(i);
-
-    if(streq(part, particlemm))
-    {
-      cout << processmm << endl;
-    }
+    cout << r.s << endl;
   }
-
-  cout << "###mp" << endl;
-
-  for (Long64_t i=0; i < nentriesmp; i++)
+  else if(r.tag == result::DOUBLE)
   {
-    tmp->GetEntry(i);
-
-    if(streq(part, particlemp))
-    {
-      cout << processmp << endl;
-    }
+    cout << r.n << endl;
   }
 }
 
-void printPhotonuclearProducts(TTree* tmm, TTree* tmp)
+void printBoth(TTree* tmm, TTree* tmp, treeprocess fill)
 {
-  static Char_t particlemm[50], particlemp[50], processmm[50], processmp[50];
-  static Int_t eventmm, eventmp, parentmm, parentmp;
-
-  tmm->SetBranchAddress("particle", &particlemm);
-  tmp->SetBranchAddress("particle", &particlemp);
-  tmm->SetBranchAddress("process", &processmm);
-  tmp->SetBranchAddress("process", &processmp);
-  tmm->SetBranchAddress("eventID", &eventmm);
-  tmp->SetBranchAddress("eventID", &eventmp);
-  tmm->SetBranchAddress("parentID", &parentmm);
-  tmp->SetBranchAddress("parentID", &parentmp);
-
-  Long64_t nentriesmm = tmm->GetEntries();
-  Long64_t nentriesmp = tmp->GetEntries();
-
   cout << "###mm" << endl;
-
-  for (Long64_t i=0; i < nentriesmm; i++)
-  {
-    tmm->GetEntry(i);
-
-    if(streq("photonNuclear", processmm))
-    {
-      cout << eventmm << ": " << particlemm << "<" << parentmm << endl;
-    }
-  }
+  fill(tmm, printYielder);
 
   cout << "###mp" << endl;
-
-  for (Long64_t i=0; i < nentriesmp; i++)
-  {
-    tmp->GetEntry(i);
-
-    if(streq("photonNuclear", processmp))
-    {
-      cout << eventmp << ": " << particlemp << "<" << parentmp << endl;
-    }
-  }
-}
-
-bool streq(const Char_t* s1, const Char_t* s2)
-{
-  return !strncmp(s1, s2, max(strlen(s1), strlen(s2)));
+  fill(tmp, printYielder);
 }
